@@ -5,6 +5,11 @@ import login from "./routes/login.js";
 
 const app = new Koa();
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 // Error handler
 app.use(async (ctx, next) => {
   try {
@@ -17,7 +22,10 @@ app.use(async (ctx, next) => {
 
 // Let the mobile app and the widget call us
 app.use(async (ctx, next) => {
-  ctx.set("Access-Control-Allow-Origin", "*");
+  const origin = ctx.get("Origin");
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    ctx.set("Access-Control-Allow-Origin", origin);
+  }
   ctx.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   ctx.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (ctx.method === "OPTIONS") {
