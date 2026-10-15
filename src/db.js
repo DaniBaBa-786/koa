@@ -12,6 +12,17 @@ for (const name of ["Ana", "Ben", "Chloe", "Dev", "Eli", "Fay", "Gus", "Hana", "
 
 const delay = () => new Promise((r) => setTimeout(r, 20));
 
+// Serializes access to the bookings store so that "check for conflict, then
+// write" sequences in insert() can't interleave across concurrent requests.
+// This is the only atomicity primitive available since the store is a plain
+// in-memory Map with no real transaction support.
+let lock = Promise.resolve();
+function withLock(fn) {
+  const run = lock.then(fn, fn);
+  lock = run.catch(() => {});
+  return run;
+}
+
 export const db = {
   bookings: {
     async list() {
@@ -19,11 +30,21 @@ export const db = {
       return [...bookings.values()];
     },
     async insert(row) {
-      await delay();
-      const id = String(nextId++);
-      const saved = { id, ...row };
-      bookings.set(id, saved);
-      return saved;
+      return withLock(async () => {
+        await delay();
+        const duplicate = [...bookings.values()].some(
+          (b) => b.name === row.name && b.classId === row.classId && b.date === row.date
+        );
+        if (duplicate) {
+          const err = new Error("A booking for this name, class and date already exists.");
+          err.status = 409;
+          throw err;
+        }
+        const id = String(nextId++);
+        const saved = { id, ...row };
+        bookings.set(id, saved);
+        return saved;
+      });
     },
     async delete(id) {
       await delay();
