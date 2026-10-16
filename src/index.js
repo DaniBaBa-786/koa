@@ -36,4 +36,11 @@ app.use(async (ctx) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, "0.0.0.0", () => console.log(`bookly-api on :${port}`));
+// Vercel runs this as a function, where there is no port to listen on.
+// Everywhere else -- your machine, the workspace -- this is unchanged.
+if (!process.env.VERCEL) {
+  app.listen(port, "0.0.0.0", () => console.log(`bookly-api on :${port}`));
+}
+
+// So the Vercel function can reach your app.
+export default app;
